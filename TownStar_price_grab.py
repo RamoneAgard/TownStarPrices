@@ -1,10 +1,8 @@
 # Web scraping OpenSea and RarityTools
 # Vox chainID = (Vox Collectibles #) + 584
-#import requests
+
 import time
 import csv
-#from tkinter import E
-#from tkinter import Grid
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -63,20 +61,23 @@ def getNextBtn(driver):
         raise CustomError("Something else went wrong retrieving the next button")
 
 
-# global values needed
+# global values to customize 
+target_url = "https://rarity.tools/collectvox?filters=%24buyNow%24On%3Atrue%3B%26auction%24On%3Atrue"
+target_csv_file = "townstar_vox_nfts.csv"
 hrefBase =  "https://rarity.tools"
-options = webdriver.FirefoxOptions()
-options.add_argument('--headless')
+myOptions = webdriver.FirefoxOptions()
+myOptions.add_argument('--headless')
 
 # create WebDriver and get desired rarity.tools page plus the filters
-driver = webdriver.Firefox()
-driver.get("https://rarity.tools/collectvox?filters=%24buyNow%24On%3Atrue%3B%26auction%24On%3Atrue")
+driver = webdriver.Firefox(options=myOptions)
+driver.get(target_url)
 #driver.get("https://opensea.io/collection/town-star?search[sortAscending]=true&search[sortBy]=PRICE&search[stringTraits][0][name]=game&search[stringTraits][0][values][0]=Town%20Star&search[stringTraits][1][name]=category&search[stringTraits][1][values][0]=Building&search[stringTraits][1][values][1]=Crafting&search[stringTraits][1][values][2]=Farm%20Stands&search[stringTraits][1][values][3]=Storage&search[stringTraits][1][values][4]=Towers&search[stringTraits][1][values][5]=Solar%20Panels&search[stringTraits][1][values][6]=Trophy&search[stringTraits][1][values][7]=Fountains&search[stringTraits][1][values][8]=Death%20Row%20Records&search[stringTraits][1][values][9]=ElfBot&search[stringTraits][1][values][10]=Gala%20Music&search[stringTraits][1][values][11]=Trade%20Vehicles&search[stringTraits][1][values][12]=Exchange&search[stringTraits][1][values][13]=Snoop%20Dogg&search[stringTraits][1][values][14]=Misc&search[stringTraits][1][values][15]=Saltybot&search[stringTraits][1][values][16]=Galaverse%20Tickets&search[stringTraits][1][values][17]=Crafter")
-writeInfoToFile = True
 
+writeInfoToFile = True
 #list of total scraped info
 infoList = []
 clickCount = 1
+
 while(True):
     # wait for results to load 
     try:
@@ -112,6 +113,7 @@ while(True):
     #try to navigate to next results page
     # if there is no next page, then the process ends
     time.sleep(4)
+    print("End of page", clickCount)
     driver.get(currPage)
     try:
         nextBtn = getNextBtn(driver)
@@ -145,11 +147,12 @@ driver.quit()
 
 # Write the info to csv file if its still okay to
 if(writeInfoToFile):
-    with open("townstar_vox_nfts.csv", 'w', newline='', encoding='utf-8') as f:
+    with open(target_csv_file, 'w', newline='', encoding='utf-8') as f:
         headers = ['Name', 'Price(ETH)', 'Score', 'Link']
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         writer.writerows(infoList)
+    print("Results written to file")
         
 
 
