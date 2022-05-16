@@ -1,4 +1,5 @@
 .DS_Store
+authInfo.py
 *.code-workspace
 
 __pycache__/

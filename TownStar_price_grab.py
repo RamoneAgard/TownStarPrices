@@ -1,201 +1,153 @@
-# Web scraping OpenSea and RarityTools
-# Vox chainID = (Vox Collectibles #) + 584
-
+from encodings import utf_8
 import time
+import requests
 import csv
-from bs4 import BeautifulSoup
-from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.common import exceptions
+from authInfo import apiKey
+#import json
 
-'''
-basic custom error class
-'''
-class CustomError(Exception):
-    pass
+# file reading and writing variables
+nftNameList = 'town_list.csv'
+# tableHead = [
+#     'Name',
+#     'TokenID',
+#     'Points'
+# ]
+tableHead = [
+    'Name',
+    'Price',
+    'Points',
+    'Link'
+]
+csvWriteFile = ''
 
-'''
-Input: list of selected BS4 tags from rarity.tools and the webdriver to use
-Ouput: list of dictionaries with rarity.tools listing info
-    {name: nft name, priceEth: opeansea price, Score: rarity score, Link: view link}
-    (Throws exception if view page cannot load)
-'''
-def scrapeCells(cellList, driver):
-    scrapeList = []
-    for cell in cellList:
-        cellChildren = cell.contents
-        link = cellChildren[2].a['href']
-        viewLink = hrefBase + link
+# api related variables
+nullAddress = "0x0000000000000000000000000000000000000000"
+targetURL = "https://api.opensea.io/wyvern/v1/orders"
+resultLimit = 50
+resultOffset = 0
 
-        driver.get(viewLink)
-        loaded = WebDriverWait(driver, 10).until( EC.presence_of_element_located(
-            (By.CSS_SELECTOR,'div.font-extrabold.text-green-500')))
-        if(not loaded):
-            raise CustomError("Something went wrong in scrapeCells function ")
-            
-        webEle = driver.find_element_by_css_selector('div.font-extrabold.text-green-500')
-        score = webEle.get_attribute("innerText")
-        name = str(cellChildren[4].string).strip()
-        price = str(cellChildren[6].a.string)[:-4]
-        scrapeList.append({
-            "Name" : name,
-            "Price(ETH)":  price,
-            "Score": score,
-            "Link" : viewLink,
-        })
-        break
-    return scrapeList
+apiHeaders = {
+    "Accept": "application/json",
+    "X-API-KEY": apiKey()
+}
 
-'''
-Input: Webdriver to use
-Output: the WebElement associated with the next page results button
-        (Throws an exception if button is not found)
-'''
-def getNextBtn(driver):
-    if(WebDriverWait(driver, 10).until(EC.presence_of_element_located(
-        (By.XPATH, "//div[@class='select-none smallBtn'][contains(text(),'Next')]")))):
-        return driver.find_element(By.XPATH,"//div[@class='select-none smallBtn'][contains(text(),'Next')]")
-    else:
-        raise CustomError("Something else went wrong retrieving the next button")
+apiParams = [
+    ('asset_contract_address', '0xc36cf0cfcb5d905b8b513860db0cfe63f6cf9f5c'),
+    ('bundled', 'false'),
+    ('include_bundled', 'false'),
+    ('side', '1'),
+    ('limit', str(resultLimit)),
+    #('order_by', 'created_date'),
+    ('order_by', 'eth_price'),
+    ('order_direction', 'asc'),
+    #('token_id', '11909882842232846221218111260111887400960')
+]
 
-
-# global values to customize 
-target_url = "https://rarity.tools/collectvox?filters=%24buyNow%24On%3Atrue%3B%26auction%24On%3Atrue"
-target_csv_file = "townstar_vox_nfts.csv"
-hrefBase =  "https://rarity.tools"
-myOptions = webdriver.FirefoxOptions()
-myOptions.add_argument('--headless')
-
-# create WebDriver and get desired rarity.tools page plus the filters
-driver = webdriver.Firefox(options=myOptions)
-driver.get(target_url)
-#driver.get("https://opensea.io/collection/town-star?search[sortAscending]=true&search[sortBy]=PRICE&search[stringTraits][0][name]=game&search[stringTraits][0][values][0]=Town%20Star&search[stringTraits][1][name]=category&search[stringTraits][1][values][0]=Building&search[stringTraits][1][values][1]=Crafting&search[stringTraits][1][values][2]=Farm%20Stands&search[stringTraits][1][values][3]=Storage&search[stringTraits][1][values][4]=Towers&search[stringTraits][1][values][5]=Solar%20Panels&search[stringTraits][1][values][6]=Trophy&search[stringTraits][1][values][7]=Fountains&search[stringTraits][1][values][8]=Death%20Row%20Records&search[stringTraits][1][values][9]=ElfBot&search[stringTraits][1][values][10]=Gala%20Music&search[stringTraits][1][values][11]=Trade%20Vehicles&search[stringTraits][1][values][12]=Exchange&search[stringTraits][1][values][13]=Snoop%20Dogg&search[stringTraits][1][values][14]=Misc&search[stringTraits][1][values][15]=Saltybot&search[stringTraits][1][values][16]=Galaverse%20Tickets&search[stringTraits][1][values][17]=Crafter")
-
-writeInfoToFile = True
-#list of total scraped info
-infoList = []
-clickCount = 1
-
-while(True):
-    # wait for results to load 
-    try:
-        loaded = WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located(
-            (By.CSS_SELECTOR,'div.transform')))
-        if(not loaded):
-            print("Driver wait returned false")
-            break
-    except exceptions.TimeoutException:
-        print("Timeout loading page results")
-        writeInfoToFile = False
-        break
-
-    #save current page for navigation
-    currPage = driver.current_url
-
-    # soup the page source and extract result cells 
-    soup = BeautifulSoup(driver.page_source, 'html.parser')
-    gridCells = soup.select(".transform")
-
-    # try to append more scrapped information to total list
-    try:
-        infoList.extend(scrapeCells(gridCells, driver))
-    except exceptions.TimeoutException:
-        print("Driver Timeout scraping page results")
-        writeInfoToFile = False
-        break
-    except CustomError as e:
-        print(e.__str__)
-        writeInfoToFile = False
-        break
-
-    #try to navigate to next results page
-    # if there is no next page, then the process ends
-    time.sleep(4)
-    print("End of page", clickCount)
-    driver.get(currPage)
-    try:
-        nextBtn = getNextBtn(driver)
-        if nextBtn != None:
-            for x in range(clickCount):
-                nextBtn.click()
-                time.sleep(1)
-            clickCount += 1
+didread = 0
+# dict mapping tokenId to town points earned
+lookupDict = {}
+# read nft information from the reference file
+with open(nftNameList, 'r', newline='', encoding='utf-8') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        if(row['TokenID'] == '0'):
+            continue
         else:
-            print("Failed to get next button")
+            lookupDict[row['TokenID']] = row['Points']
+            apiParams.append(('token_ids', row['TokenID']))
+        didread += 1
+        if(didread >= 7):
             break
-    except exceptions.StaleElementReferenceException:
-        print("No next page")
-        print("End of Scraping")
-        break
-    except exceptions.NoSuchElementException:
-        print("Found but could not retrieve next button")
-        print("Something went wrong")
-        writeInfoToFile = False
-        break
-    except exceptions.TimeoutException:
-        print("driver timeout waiting for next button")
-        writeInfoToFile = False 
-        break
-    except CustomError as e:
-        print(e.__str__)
-        writeInfoToFile = False
-        break
-
-driver.quit()
-
-# Write the info to csv file if its still okay to
-if(writeInfoToFile):
-    with open(target_csv_file, 'w', newline='', encoding='utf-8') as f:
-        headers = ['Name', 'Price(ETH)', 'Score', 'Link']
-        writer = csv.DictWriter(f, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(infoList)
-    print("Results written to file")
         
+print(lookupDict)
+
+#lookupDict['11909882842232846221218111260111887400960'] = '1'
+
+# list of dictionaries representing possible opensea orders
+# {Name:  ,Price:  ,Points:  ,Link:}
+possibleOrders = []
+
+isNextPage = True
+while(isNextPage):
+    offsetParam = [
+        ('offset', str(resultOffset))
+    ]
+    response = requests.get(
+        targetURL,
+        headers = apiHeaders,
+        params = apiParams + offsetParam
+    )
+    jsonResponse = response.json()
+    resultOrders = jsonResponse['orders']
+    # for each order grab the name, points, link, and price
+    for o in resultOrders:
+        name = o['asset']['name']
+        id = o['metadata']['asset']['id']
+        # use token id to reference the points earned from csv file
+        points = lookupDict[id]
+        link = o['asset']['permalink']
+        priceStr = o['base_price']
+        # see what token the order takes as payment
+        payToken = o['payment_token_contract']['symbol']
+        decimalNums = int(o['payment_token_contract']['decimals'])
+        # adjust length of price string to include all decimal places
+        if(len(priceStr) < decimalNums):
+            diff = decimalNums - len(priceStr)
+            priceStr = ('0' * diff) + priceStr
+        # insert the decimal in the right place
+        price = priceStr[:-decimalNums] + '.' + priceStr[-decimalNums:]
+        # convert payment token to eth equivalent if not already 
+        if(payToken != 'ETH'):
+            eth_price = float(o['payment_token_contract']['eth_price'])
+            conversion = float(price) * eth_price
+            price = str(conversion)
+        # add order info to list of possible orders 
+        possibleOrders.append({
+            'Name': name,
+            'Price': price,
+            'Points': points,
+            'Link': link
+        })
+        #print(possibleOrders)
+        #break
+
+    # update the pagination offset for api request 
+    if(len(resultOrders) < resultLimit):
+        isNextPage = False
+    else:
+        resultOffset += resultLimit
+    #break
+    
+print(possibleOrders)
 
 
-#nextBtn = ''
-#waitCount = 0
-# done = 0
-# try: 
-#     if(WebDriverWait(driver, 10).until(
-#         EC.text_to_be_present_in_element((By.CSS_SELECTOR,'div.smallBtn.select-none'),'Next'))):
-#         nextBtn = driver.find_element_by_css_selector('div.smallBtn.select-none')
-#     else:
-#         print("Could not meet condition for wait")
-#         done = 1
-# except exceptions.TimeoutException:
-#     print("Driver Wait timeout")
-#     done = 1
-# except exceptions.NoSuchElementException:
-#     print("Could not find next button element")
-#     done = 1
-# except:
-#     print("Something went wrong")
-#     done = 1
+# requestOffset = 0
+# url = "https://api.opensea.io/wyvern/v1/orders?asset_contract_address=0xc36cf0cfcb5d905b8b513860db0cfe63f6cf9f5c&bundled=false&include_bundled=false&token_ids=158571582985157323973932567063203986538496&token_ids=203148573051800262687634640636765622239232&token_ids=174905136597362370220174548219928860688384&side=1&limit=20&offset=0&order_by=created_date&order_direction=desc"
 
-# if(done == 1): 
-#     driver.close()
-#     done = 2
-# else:
-#     print("did it")
-# scrapeInfo = []
-# while(done == 0):
-#     try:
-#         WebDriverWait(driver, 10).until(
-#             EC.presence_of_all_elements_located((By.CSS_SELECTOR,'div.transform')))
-#         gridCells = soup.select(".transform")
-#         scrapeInfo.append(scrapeCells(gridCells))
-#         btnGroup.click()
-#     except exceptions.StaleElementReferenceException:
-#         print("End of pages to scrape")
-#         done = 1
-#     except exceptions.TimeoutException:
-#         print("Driver wait timeout")
-#         done = 1
-#     except: 
-#         print("Something else went wrong")
-#         done = 1
-#     time.sleep(5)
+
+
+# headers = {
+#     "Accept": "application/json",
+#     "X-API-KEY": apiKey()
+# }
+
+# params = [
+#     ('asset_contract_address', '0xc36cf0cfcb5d905b8b513860db0cfe63f6cf9f5c'),
+#     ('bundled', 'false'),
+#     ('include_bundled', 'false'),
+#     ('side', '1'),
+#     ('limit', '1'),
+#     ('offset', str(requestOffset)),
+#     ('order_by', 'created_date'),
+#     ('order_direction', 'desc'),
+#     ('token_id', '158571582985157323973932567063203986538496')
+# ]
+
+# # response = requests.get(url, headers=headers)
+# response = requests.get(
+#     targetURL, 
+#     headers = headers,
+#     params = params
+# )
+# print(response.request.url)
+# print(response.json())
