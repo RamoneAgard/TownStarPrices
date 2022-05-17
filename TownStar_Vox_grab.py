@@ -50,8 +50,8 @@ def scrapeCells(cellList, driver):
         price = str(cellChildren[6].a.string)[:-4]
         scrapeList.append({
             "Name" : name,
-            "Price(ETH)":  price,
-            "Score": score,
+            "Price":  price,
+            "Points": score,
             "Link" : viewLink,
         })
         break
@@ -89,6 +89,7 @@ while(True):
             (By.CSS_SELECTOR,'div.transform')))
         if(not loaded):
             print("Driver wait returned false")
+            writeInfoToFile = False
             break
     except exceptions.TimeoutException:
         print("Timeout loading page results")
@@ -128,6 +129,7 @@ while(True):
             clickCount += 1
         else:
             print("Failed to get next button")
+            writeInfoToFile = False
             break
     except exceptions.StaleElementReferenceException:
         print("No next page")
@@ -152,54 +154,9 @@ driver.quit()
 # Write the info to csv file if its still okay to
 if(writeInfoToFile):
     with open(target_csv_file, 'w', newline='', encoding='utf-8') as f:
-        headers = ['Name', 'Price(ETH)', 'Score', 'Link']
+        headers = ['Name', 'Price', 'Points', 'Link']
         writer = csv.DictWriter(f, fieldnames=headers)
         writer.writeheader()
         writer.writerows(infoList)
-    print("Results written to file")
+    print("Results written to file:", target_csv_file)
         
-
-
-#nextBtn = ''
-#waitCount = 0
-# done = 0
-# try: 
-#     if(WebDriverWait(driver, 10).until(
-#         EC.text_to_be_present_in_element((By.CSS_SELECTOR,'div.smallBtn.select-none'),'Next'))):
-#         nextBtn = driver.find_element_by_css_selector('div.smallBtn.select-none')
-#     else:
-#         print("Could not meet condition for wait")
-#         done = 1
-# except exceptions.TimeoutException:
-#     print("Driver Wait timeout")
-#     done = 1
-# except exceptions.NoSuchElementException:
-#     print("Could not find next button element")
-#     done = 1
-# except:
-#     print("Something went wrong")
-#     done = 1
-
-# if(done == 1): 
-#     driver.close()
-#     done = 2
-# else:
-#     print("did it")
-# scrapeInfo = []
-# while(done == 0):
-#     try:
-#         WebDriverWait(driver, 10).until(
-#             EC.presence_of_all_elements_located((By.CSS_SELECTOR,'div.transform')))
-#         gridCells = soup.select(".transform")
-#         scrapeInfo.append(scrapeCells(gridCells))
-#         btnGroup.click()
-#     except exceptions.StaleElementReferenceException:
-#         print("End of pages to scrape")
-#         done = 1
-#     except exceptions.TimeoutException:
-#         print("Driver wait timeout")
-#         done = 1
-#     except: 
-#         print("Something else went wrong")
-#         done = 1
-#     time.sleep(5)
