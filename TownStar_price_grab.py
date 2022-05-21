@@ -122,13 +122,14 @@ writeToFile = True
 requestCount = 0
 
 while(isNextPage):
+    idOffset = maxNumIds if (len(apiTokenIds) > maxNumIds) else len(apiTokenIds)
     offsetParam = [
         ('offset', str(resultOffset))
     ]
     response = requests.get(
         targetURL,
         headers = apiHeaders,
-        params = apiParams + offsetParam + apiTokenIds[:maxNumIds]
+        params = apiParams + offsetParam + apiTokenIds[:idOffset]
     )
     if(response.status_code != 200):
         print("Response status code:", response.status_code)
@@ -148,6 +149,7 @@ while(isNextPage):
     if(len(resultOrders) < resultLimit):
         if(len(apiTokenIds) > maxNumIds):
             apiTokenIds = apiTokenIds[maxNumIds:]
+            resultOffset = 0
             print("Reduce api token length")
         else:
             print("End of api calls")
@@ -156,8 +158,8 @@ while(isNextPage):
     else:
         resultOffset += resultLimit
     print("after request number:", requestCount, " offset:", resultOffset, " aip token length:", len(apiTokenIds) )
-    if requestCount > 3:
-        break
+    # if requestCount > 5:
+    #     break
     time.sleep(0.5)
 
 # write the opensea order information to a file
