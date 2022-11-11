@@ -37,7 +37,7 @@ def scrapeCells(cellList, driver):
         viewLink = hrefBase + link
 
         driver.get(viewLink)
-        loaded = WebDriverWait(driver, 10).until( EC.presence_of_element_located(
+        loaded = WebDriverWait(driver, 15).until( EC.presence_of_element_located(
             (By.CSS_SELECTOR,'div.font-extrabold.text-green-500')))
         if(not loaded):
             raise CustomError("Something went wrong in scrapeCells function ")
@@ -77,10 +77,10 @@ driver = webdriver.Firefox(options=myOptions)
 #driver.get("https://opensea.io/collection/town-star?search[sortAscending]=true&search[sortBy]=PRICE&search[stringTraits][0][name]=game&search[stringTraits][0][values][0]=Town%20Star&search[stringTraits][1][name]=category&search[stringTraits][1][values][0]=Building&search[stringTraits][1][values][1]=Crafting&search[stringTraits][1][values][2]=Farm%20Stands&search[stringTraits][1][values][3]=Storage&search[stringTraits][1][values][4]=Towers&search[stringTraits][1][values][5]=Solar%20Panels&search[stringTraits][1][values][6]=Trophy&search[stringTraits][1][values][7]=Fountains&search[stringTraits][1][values][8]=Death%20Row%20Records&search[stringTraits][1][values][9]=ElfBot&search[stringTraits][1][values][10]=Gala%20Music&search[stringTraits][1][values][11]=Trade%20Vehicles&search[stringTraits][1][values][12]=Exchange&search[stringTraits][1][values][13]=Snoop%20Dogg&search[stringTraits][1][values][14]=Misc&search[stringTraits][1][values][15]=Saltybot&search[stringTraits][1][values][16]=Galaverse%20Tickets&search[stringTraits][1][values][17]=Crafter")
 
 writeInfoToFile = True
-amendFile = True
+amendFile = False
 #list of total scraped info
 infoList = []
-pageNum = 3
+pageNum = 1
 clickCount = 1
 
 while(True):
@@ -129,7 +129,9 @@ while(True):
         infoList.extend(scrapeCells(gridCells, driver))
     except exceptions.TimeoutException:
         print("Driver Timeout scraping page results")
-        writeInfoToFile = False
+        #writeInfoToFile = False
+        if pageNum == 1:
+            writeInfoToFile = False
         break
     except CustomError as e:
         print(e.__str__)

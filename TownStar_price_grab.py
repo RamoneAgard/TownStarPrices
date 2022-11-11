@@ -154,7 +154,7 @@ while(isNextPage):
         else:
             print("End of api calls")
             isNextPage = False
-            break
+            #break
     else:
         resultOffset += resultLimit
     print("after request number:", requestCount, " offset:", resultOffset, " aip token length:", len(apiTokenIds) )
